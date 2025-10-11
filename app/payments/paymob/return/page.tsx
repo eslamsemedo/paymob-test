@@ -1,34 +1,55 @@
-// app/payments/paymob/return/page.tsx
-import { Suspense } from "react";
+import Script from "next/script";
 
-async function verify(searchParams: Record<string, string>) {
-  // Call your microservice to verify HMAC (and optionally inquiry)
-  const u = new URL(process.env.PAYMOB_SERVICE_URL + "/api/paymob/redirection-verify");
-  Object.entries(searchParams).forEach(([k, v]) => u.searchParams.set(k, v));
-  const res = await fetch(u.toString(), { cache: "no-store" });
+// Next App Router shape for searchParams
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+// Normalize to plain string map
+function normalize(sp: SearchParams): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(sp)) {
+    out[k] = Array.isArray(v) ? String(v?.[0] ?? "") : String(v ?? "");
+  }
+  return out;
+}
+
+async function verifyWithService(sp: SearchParams) {
+  const params = normalize(sp);
+  const base = process.env.PAYMOB_SERVICE_URL!;
+  const url = new URL("/api/paymob/redirection-verify", base);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) {
+    return { ok: false, verified: false, success: false };
+  }
   return res.json();
 }
 
 export default async function PaymobReturn({
   searchParams,
 }: {
-  searchParams: Record<string, string>;
+  searchParams: SearchParams;
 }) {
-  const result = await verify(searchParams);
+  const result = await verifyWithService(searchParams);
 
-  // Render a simple receipt UI
   return (
-    <main style={{ maxWidth: 600, margin: "3rem auto", fontFamily: "system-ui" }}>
+    <main style={{ maxWidth: 640, margin: "3rem auto", fontFamily: "system-ui" }}>
+      {/* Bust out of the Paymob iframe so this page takes over the tab */}
+      <Script id="frame-buster" strategy="afterInteractive">
+        {`if (window.top !== window.self) { window.top.location.href = window.location.href; }`}
+      </Script>
+
       <h1>Payment {result.success ? "Successful" : "Failed"}</h1>
       <p>
-        Status: <b>{result.success ? "Paid" : "Not paid"}</b>
-        {result.verified ? "" : " (unverified)"}
+        Status: <b>{result.success ? "Paid" : "Not paid"}</b>{" "}
+        {result.verified ? "" : "(unverified)"}
       </p>
       <ul>
         <li>Order ID: {result.order_id ?? "n/a"}</li>
         <li>Transaction ID: {result.tx_id ?? "n/a"}</li>
         <li>
-          Amount: {result.amount_cents ? (Number(result.amount_cents) / 100).toFixed(2) : "-"}{" "}
+          Amount:{" "}
+          {result.amount_cents ? (Number(result.amount_cents) / 100).toFixed(2) : "-"}{" "}
           {result.currency || "EGP"}
         </li>
       </ul>
