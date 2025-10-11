@@ -1,3 +1,4 @@
+import { AppRoute } from "next/dist/build/swc/types";
 import Script from "next/script";
 
 // Next App Router shape for searchParams
@@ -25,12 +26,9 @@ async function verifyWithService(sp: SearchParams) {
   return res.json();
 }
 
-export default async function PaymobReturn({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const result = await verifyWithService(searchParams);
+export default async function PaymobReturn(props: PageProps<"/payments/paymob/return">) {
+  const query = await props.searchParams
+  const result = await verifyWithService(query);
 
   return (
     <main style={{ maxWidth: 640, margin: "3rem auto", fontFamily: "system-ui" }}>
