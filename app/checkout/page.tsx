@@ -7,6 +7,6 @@ export default async function Page() {
   });
   // Option 1: Hosted iFrame
   return (
-    <iframe src={data.iframe_url} width="100%" height="650" allow="payment" />
+    <iframe src={data.iframe_url} width="100%" height="100%" allow="payment" />
   );
 }
